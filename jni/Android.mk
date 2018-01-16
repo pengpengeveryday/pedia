@@ -7,3 +7,4 @@ LOCAL_SRC_FILES:= test.cpp \
 LOCAL_MODULE:= pedia-jni
 
 include $(BUILD_SHARED_LIBRARY)
+include $(call all-makefiles-under,$(LOCAL_PATH))

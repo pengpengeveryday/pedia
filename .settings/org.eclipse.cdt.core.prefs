@@ -1,0 +1,12 @@
+eclipse.preferences.version=1
+environment/project/com.android.toolchain.gcc.144249866/ANDROID-NDK-PATH/delimiter=\:
+environment/project/com.android.toolchain.gcc.144249866/ANDROID-NDK-PATH/operation=replace
+environment/project/com.android.toolchain.gcc.144249866/ANDROID-NDK-PATH/value=/home/richie/Public/ndk/android-ndk-r15b
+environment/project/com.android.toolchain.gcc.144249866/LANG/delimiter=\:
+environment/project/com.android.toolchain.gcc.144249866/LANG/operation=replace
+environment/project/com.android.toolchain.gcc.144249866/LANG/value=en_US.UTF-8\:en_US
+environment/project/com.android.toolchain.gcc.144249866/LC_ALL/delimiter=\:
+environment/project/com.android.toolchain.gcc.144249866/LC_ALL/operation=append
+environment/project/com.android.toolchain.gcc.144249866/LC_ALL/value=en_US
+environment/project/com.android.toolchain.gcc.144249866/append=true
+environment/project/com.android.toolchain.gcc.144249866/appendContributed=false
