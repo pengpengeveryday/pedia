@@ -8,10 +8,20 @@
 #ifndef BMPEXTRACTOR_H_
 #define BMPEXTRACTOR_H_
 
+#include "datasource/DataSource.h"
+
+namespace peng {
+
 class BmpExtractor {
 public:
-    BmpExtractor();
+    BmpExtractor(DataSource& source);
     virtual ~BmpExtractor();
+
+private:
+    DataSource& mSource;
 };
+
+
+}
 
 #endif /* BMPPARSER_H_ */

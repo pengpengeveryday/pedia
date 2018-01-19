@@ -4,6 +4,7 @@ include $(CLEAR_VARS)
 
 LOCAL_C_INCLUDES := \
     $(JNI_DIR)/core/ \
+    $(JNI_DIR)/media/ \
 
 LOCAL_SRC_FILES:= \
     test.cpp \
