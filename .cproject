@@ -32,6 +32,7 @@
 								<option id="com.android.gcc.option.includePath.1533108055" superClass="com.android.gcc.option.includePath" valueType="includePath">
 									<listOptionValue builtIn="false" value="/home/richie/Public/ndk/android-ndk-r15b/sources/cxx-stl/stlport/stlport"/>
 									<listOptionValue builtIn="false" value="/home/richie/Public/ndk/android-ndk-r15b/platforms/android-19/arch-arm/usr/include"/>
+									<listOptionValue builtIn="false" value="/home/richie/Public/ndk/android-ndk-r15b/toolchains/arm-linux-androideabi-4.9/prebuilt/linux-x86_64/lib/gcc/arm-linux-androideabi/4.9.x/include"/>
 								</option>
 								<inputType id="com.android.gcc.inputType.326097981" superClass="com.android.gcc.inputType"/>
 							</tool>

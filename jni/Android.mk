@@ -2,6 +2,8 @@ LOCAL_PATH:= $(call my-dir)
 
 include $(CLEAR_VARS)
 
+JNI_DIR := $(LOCAL_PATH)
+
 LOCAL_SRC_FILES:= test.cpp \
 
 LOCAL_MODULE:= pedia-jni

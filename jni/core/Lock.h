@@ -3,15 +3,6 @@
 
 #include <pthread.h>
 
-#ifndef PRINT
-#include <stdio.h>
-#define PRINT(format, args...)  {              \
-                printf(format, ##args);        \
-                printf("\n");                  \
-        }
-#endif
-
-
 namespace peng {
 
 class Lock {
