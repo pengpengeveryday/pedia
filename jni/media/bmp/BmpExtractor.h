@@ -14,11 +14,25 @@ namespace peng {
 
 class BmpExtractor {
 public:
+    enum {
+        BMP_UNSUPPORT = -1, BMP_565, BMP_888
+    };
+
     BmpExtractor(DataSource& source);
     virtual ~BmpExtractor();
 
+    int width() { return mWidth; }
+    int height() { return mHeight; }
+
+    void bmp2yuv420(unsigned char* const yuv, int size);
+
 private:
     DataSource& mSource;
+    unsigned char* mData;
+    int mWidth;
+    int mHeight;
+    int mBitDepth;
+    int mBitCount;
 };
 
 

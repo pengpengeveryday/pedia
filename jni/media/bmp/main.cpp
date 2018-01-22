@@ -156,40 +156,43 @@ void localgets(char* buf, int len)
   }
 }
 
-void YUV2RGB(BYTE* pYUV, BYTE* pRGB)
+void RGB2YUV(BYTE* pRGB, BYTE* pYUV)
 {
   double Y, U, V;
-  double R, G, B;
+  BYTE R, G, B;
   
-  Y = pYUV[0];
-  U = pYUV[1];
-  V = pYUV[2];
+  R = pRGB[1];
+  G = pRGB[2];
+  B = pRGB[3];
+  Y = 0.299*R + 0.587*G + 0.114*B;
+  U = -0.1687*R - 0.3313*G + 0.5*B + 128;
+  V = 0.5*R - 0.4187*G - 0.0813*B + 128;
+  //U = 0.564*(B - Y);
+  //V = 0.713*(R - Y);
+//Y  =  (0.257 * R) + (0.504 * G) + (0.098 * B) + 16;
+//U = -(0.148 * R) - (0.291 * G) + (0.439 * B) + 128;
+//V =  (0.439 * R) - (0.368 * G) - (0.071 * B) + 128;
   
-  R = Y + 1.402*(V-128);
-  G = Y - 0.34414*(U-128) - 0.71414*(V-128);
-  B = Y + 1.772*(U-128);
-
-  /*R = Y + 1.402*V;
-  G = Y - 0.34414*U - 0.71414*V;
-  B = Y + 1.772*U;*/
- 
-  if (R > 255)R = 255;
-  if (G > 255)G = 255;
-  if (B > 255)B = 255;
-  if (R < 0)R = 0;
-  if (G < 0)G = 0;
-  if (B < 0)B = 0; 
-  pRGB[0] = (int)R;
-  pRGB[1] = (int)G;
-  pRGB[2] = (int)B;
+  //printf("Y:%d U:%d V:%d  ", (int)Y, (int)U, (int)V);
+  pYUV[0] = (int)Y > 235?235:(int)Y;
+  pYUV[1] = (int)U > 235?235:(int)U;
+  pYUV[2] = (int)V > 240?240:(int)V;
+  pYUV[0] = (int)Y<16?16:(int)Y;
+  pYUV[1] = (int)U<16?16:(int)U;    
+  pYUV[2] = (int)V<16?16:(int)V;
+  pYUV[0] = Y;
+  pYUV[1] = U;                                                                                                                                                                             
+  pYUV[2] = V;
 }
 
 
-bool RestoreDataFromYUV(BYTE* pData, int len, const char* chFileName, int pos)
+bool RestoreDataFromBMP(BYTE* pData, int w, int h, const char* chFileName)
 {
+  BITMAPFILEHEADER fileheader;
+  BITMAPINFOHEADER infoheader;
   FILE* fp;
   int readLen;
-  int offset = pos;
+  int offset;
   
   fp = fopen(chFileName, "rb");
   if (fp == NULL)
@@ -197,12 +200,15 @@ bool RestoreDataFromYUV(BYTE* pData, int len, const char* chFileName, int pos)
     printf("%s open failed\n", chFileName);
     return false;
   }
+  offset = sizeof(fileheader) + sizeof(infoheader);
+  fseek(fp, 0, SEEK_END);
+  int fsz = ftell(fp);
+  offset = ftell(fp) -w*h*4 ;
   fseek(fp, offset, SEEK_SET);
-  readLen = fread(pData, 1, len, fp);
-  if (readLen != len)
+  readLen = fread(pData, 1, w*h*4, fp);
+  if (readLen != w*h*4 || fsz != offset + readLen)
   {
-    printf("RestoreDataFromYUV() read size from %d not pair, %d | %d\n", offset, readLen, len);
-    return false;
+    printf("RestoreDataFromBMP() read size from %d not pair, %d | %d fsz:%d\n", offset, readLen, w*h*4, fsz);
   }
   fclose(fp);
   return true;
@@ -228,15 +234,15 @@ int GetYUVFrameLen(int format, int w, int h)
       break;
     case NV12:
       len = w*h*3/2;
-      break;
+      break;      	
   }
   return len;
 }
 
 //YYYYYYYYY
-//UUUUUUUUU
+//UUUUUUUU
 //VVVVVVVVV
-void HV11ToRGB888(BYTE* pYUV, int w, int h, BYTE* pRGB)
+void MakeYUV444Data(BYTE* pRGB, int w, int h, BYTE* pYUV)
 {
   BYTE *pY, *pU, *pV;
   int YLEN, ULEN, VLEN;
@@ -250,10 +256,11 @@ void HV11ToRGB888(BYTE* pYUV, int w, int h, BYTE* pRGB)
   
   while (i < w*h*3)
   {
-    YUV[0] = *pY;
-    YUV[1] = *pU;
-    YUV[2] = *pV;
-    YUV2RGB(&YUV[0], &pRGB[i]);
+   // printf("begin trans...\n");
+    RGB2YUV(&pRGB[i], &YUV[0]);
+    *pY = YUV[0];
+    *pU = YUV[1];
+    *pV = YUV[2];
     pY++;
     pU++;
     pV++;
@@ -261,217 +268,159 @@ void HV11ToRGB888(BYTE* pYUV, int w, int h, BYTE* pRGB)
   }
 }
 
-//YUV420 Planar
-void HV11ToHV22(BYTE* pSrcHV11, BYTE* pDstHV22, int w, int h)
+void MakeYUV411HV41Data(BYTE* pRGB, int w, int h, BYTE* pYUV)
 {
-  int SRC_FRAME_LEN = w*h;
-  int DST_Y_LEN = w*h;
-  int DST_U_LEN = DST_Y_LEN/4;
-  int DST_V_LEN = DST_U_LEN;
-  BYTE* pSY = pSrcHV11;
-  BYTE* pSU = pSY + SRC_FRAME_LEN;
-  BYTE* pSV = pSU + SRC_FRAME_LEN;
-  BYTE* pDY = pDstHV22;
-  BYTE* pDU = pDY + DST_Y_LEN;
-  BYTE* pDV = pDU + DST_U_LEN;
-  int i = 0, j = 0;
-  
-  for (j = 0; j < h; j+=2)
+	BYTE* pSrcRGB;
+	BYTE *pY, *pU, *pV;
+	int YLEN, ULEN, VLEN;
+	int total;
+	int i = 0;
+	BYTE RGB[4][3];
+	BYTE YUV[3];
+
+	pSrcRGB = pRGB;
+	YLEN = w*h;
+	ULEN = VLEN = YLEN/4;
+
+	pY = pYUV;
+	pU = pY + YLEN;
+	pV = pU + ULEN;
+  total = w*h*3; //input data RGB888
+
+  while (i < total)
   {
-    for (i = 0; i < w/2; i++)
-    {
-      pDU[i] = pSU[i*2];
-      pDV[i] = pSV[i*2];
-      
-    }
-    pDU += w/2;
-    pDV += w/2;
-    pSU += w*2;
-    pSV += w*2;
+      for (int j = 0; j < 4; j++)
+      {
+		      RGB2YUV(&pRGB[i], &YUV[0]);
+		      *pY = YUV[0];		     
+		      pY++;
+		      if (j == 0)
+		      {
+		          *pU = YUV[1];
+		          *pV = YUV[2];
+				      pU++;
+				      pV++;				      
+		      }
+		      i += 3;
+      }
   }
-  memcpy(pDY, pSY, DST_Y_LEN);
+	
+	
 }
 
 
-void HV41ToHV11(BYTE* pSrcHV22, BYTE* pDstHV11, int w, int h)
+void MakeYUV420HV22Data(BYTE* pRGB, int w, int h, BYTE* pYUV)
 {
-    int DST_FRAME_LEN = w*h;
-	  int SRC_Y_LEN = w*h;
-	  int SRC_U_LEN = SRC_Y_LEN/4;
-	  int SRC_V_LEN = SRC_U_LEN;
-	  BYTE* pDY = pDstHV11;
-	  BYTE* pDU = pDY + DST_FRAME_LEN;
-	  BYTE* pDV = pDU + DST_FRAME_LEN;
-	  BYTE* pSY = pSrcHV22;
-	  BYTE* pSU = pSY + SRC_Y_LEN;
-	  BYTE* pSV = pSU + SRC_U_LEN;
-	  int i = 0, j = 0;
+	BYTE *pY, *pU, *pV;
+	int YLEN, ULEN, VLEN;
+	int total;
+	int i = 0, j = 0;
+	BYTE YUV[3];
+	YLEN = w*h;
+	ULEN = VLEN = YLEN/4;
 
-	  for (j = 0; j < h; j++)
-	  {
-	      for (i = 0; i < w/4; i++)
-	      {
-	          pDU[i*4] = pSU[i];
-	          pDU[i*4+1] = pSU[i];
-	          pDU[i*4+2] = pSU[i];
-	          pDU[i*4+3] = pSU[i];
-	          pDV[i*4] = pSV[i];
-	          pDV[i*4+1] = pSV[i];
-	          pDV[i*4+2] = pSV[i];
-	          pDV[i*4+3] = pSV[i];
-	      }
-	      pDU += w;
-	      pDV += w;
-	      pSU += w/4;
-	      pSV += w/4;
-	  }
-	  memcpy(pDY, pSY, SRC_Y_LEN);
+	pY = pYUV;
+	pU = pY + YLEN;
+	pV = pU + ULEN;
+        //total = w*h*3; //input data RGB888
+
+        for (j = 0; j < h; j++) {
+            for (i = 0; i< w; i++) {
+                RGB2YUV(&pRGB[(j*w + i)*4], &YUV[0]);
+                pY[j*w + i] = YUV[0];
+            }
+        }
+
+        for (j = 0; j < h; j+=2) {
+            for (i = 0; i< w; i+=2) {
+                RGB2YUV(&pRGB[(j*w + i)*4], &YUV[0]);
+                *pU = YUV[1];
+	        *pV = YUV[2];
+	        pU++;
+                pV++;
+            }
+        }
+
+	/*for (j = 0; j < h; j+=2)
+	{
+		for (i = 0; i < w; i+=2)
+		{
+			 RGB2YUV(&pRGB[(j*w + i)*3], &YUV[0]);
+			  *pY = YUV[0];
+			  *pU = YUV[1];
+			  *pV = YUV[2];
+			  *(pY+1) = *pY;
+			  *(pY+w) = *pY;
+			  *(pY+w+1) = *pY;
+			  pY+=2;
+			  pU+=1;
+			  pV+=1;
+		}
+		pY += w;
+	}*/
+}
+
+void MakeNV12Data(BYTE* pRGB, int w, int h, BYTE* pYUV)
+{
+	BYTE* pSrcRGB;
+	BYTE *pY, *pU, *pV;
+	int YLEN, ULEN, VLEN;
+	int total;
+	int i = 0, j = 0;
+	BYTE RGB[4][3];
+	BYTE YUV[3];
+
+	pSrcRGB = pRGB;
+	YLEN = w*h;
+	ULEN = VLEN = YLEN/4;
+
+	pY = pYUV;
+	pU = pY + YLEN;
+	pV = pU + ULEN;
+        total = w*h*3; //input data RGB888
+
+	for (j = 0; j < h; j+=2)
+	{
+		for (i = 0; i < w; i+=2)
+		{
+				RGB2YUV(&pRGB[(j*w + i)*3], &YUV[0]);
+			  *pY = YUV[0];
+			  *pU = YUV[1];
+			  pU++;
+			  *pU = YUV[2];
+			  *(pY+1) = *pY;
+			  *(pY+w) = *pY;
+			  *(pY+w+1) = *pY;
+			  pY+=2;
+			  pU+=1;
+		}
+		pY += w;
+	}
 }
 
 
-//YUV420 Planar to YUV444
-void HV22ToHV11(BYTE* pSrcHV22, BYTE* pDstHV11, int w, int h)
+void MakeYUVData(BYTE* pRGB, int w, int h, BYTE* pYUV, int type)
 {
-  int DST_FRAME_LEN = w*h;
-  int SRC_Y_LEN = w*h;
-  int SRC_U_LEN = SRC_Y_LEN/4;
-  int SRC_V_LEN = SRC_U_LEN;
-  BYTE* pDY = pDstHV11;
-  BYTE* pDU = pDY + DST_FRAME_LEN;
-  BYTE* pDV = pDU + DST_FRAME_LEN;
-  BYTE* pSY = pSrcHV22;
-  BYTE* pSU = pSY + SRC_Y_LEN;
-  BYTE* pSV = pSU + SRC_U_LEN;
-  int i = 0, j = 0;
-  
-  for (j = 0; j < h; j+=2)
-  {
-    for (i = 0; i < w/2; i++)
-    {
-      pDU[i*2] = pDU[i*2+1] = pSU[i];
-      pDV[i*2] = pDV[i*2+1] = pSV[i];
-      pDU[i*2 + w] = pDU[i*2+1 + w] = pSU[i];
-      pDV[i*2 + w] = pDV[i*2+1 + w] = pSV[i];
-      
-    }
-    pSU += w/2;
-    pSV += w/2;
-    pDU += w*2;
-    pDV += w*2;
-  }
-  memcpy(pDY, pSY, SRC_Y_LEN);
-}
-
-
-//NV12 to YUV444
-void NV12ToHV11(BYTE* pSrcHV22, BYTE* pDstHV11, int w, int h)
-{
-  int DST_FRAME_LEN = w*h;
-  int SRC_Y_LEN = w*h;
-  int SRC_U_LEN = SRC_Y_LEN/4;
-  int SRC_V_LEN = SRC_U_LEN;
-  BYTE* pDY = pDstHV11;
-  BYTE* pDU = pDY + DST_FRAME_LEN;
-  BYTE* pDV = pDU + DST_FRAME_LEN;
-  BYTE* pSY = pSrcHV22;
-  BYTE* pSU = pSY + SRC_Y_LEN;
-  BYTE* pSV = pSU + SRC_U_LEN;
-  int i = 0, j = 0;
-  
-  for (j = 0; j < h; j+=2)
-  {
-    for (i = 0; i < w/2; i++)
-    {
-      pDU[i*2] = pDU[i*2+1] = pSU[i*2];
-      pDV[i*2] = pDV[i*2+1] = pSU[i*2+1];
-      pDU[i*2 + w] = pDU[i*2+1 + w] = pSU[i*2];
-      pDV[i*2 + w] = pDV[i*2+1 + w] = pSU[i*2+1];
-      
-    }
-    pSU += w;
- //pSV += w/2;
-    pDU += w*2;
-    pDV += w*2;
-  }
-  memcpy(pDY, pSY, SRC_Y_LEN);
-}
-
-
-void MakeRGBData(BYTE* pYUV , int w, int h, BYTE* pRGB, int type)
-{
-  BYTE* pYUV11 = NULL;
   switch (type)
   {
     case HV11:
-      HV11ToRGB888(pYUV, w, h, pRGB);
+      MakeYUV444Data(pRGB, w, h, pYUV);
       break;
     case HV41:
-      pYUV11 = new BYTE[w*h*3];
-      HV41ToHV11(pYUV, pYUV11, w, h);
-      HV11ToRGB888(pYUV11, w, h, pRGB);
+      MakeYUV411HV41Data(pRGB, w, h, pYUV);
       break;
     case HV22:
-      pYUV11 = new BYTE[w*h*3];
-      HV22ToHV11(pYUV, pYUV11, w, h);
-      HV11ToRGB888(pYUV11, w, h, pRGB);
+      MakeYUV420HV22Data(pRGB, w, h, pYUV);
       break;
     case NV12:
-      pYUV11 = new BYTE[w*h*3];
-      NV12ToHV11(pYUV, pYUV11, w, h);
-      HV11ToRGB888(pYUV11, w, h, pRGB);
+      MakeNV12Data(pRGB, w, h, pYUV);
       break;
   }
-  if (pYUV11 != NULL) delete []pYUV11;
 }
 
-bool SaveRGBData2File(BYTE* pData, int w, int h, const char* chFileName)
+void SaveYUV2File(BYTE* pData, int len, FILE* fp)
 {
-  DWORD BytePerLine,FillZeroNum,PixelN;
-  BITMAPFILEHEADER fileheader;
-  BITMAPINFOHEADER infoheader;
-  const char *BMtype="BM"; 
-  char Zeros[5]="\0\0\0\0";
-  FILE *fpout;
-  
-  fpout=fopen(chFileName,"wb");
-  if (fpout == NULL)
-  {
-      printf("can't create file:%s\n", chFileName);
-      return false;
-  }
-  
-  /****生成BMP文件头*/  
-  BytePerLine = (3*w + 3)&0xFFFFFFFC;  /*每行多少个字节,包括补零*/
-  FillZeroNum = (3*w)&0x03;    /*补零的个数*/
-  
-  fileheader.bfType = *((WORD *)(BMtype));
-  fileheader.bfSize = sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER) + h*BytePerLine;
-  fileheader.bfReserved1 = 0;
-  fileheader.bfReserved2 = 0;
-  fileheader.bfOffBits = sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER); 
-  infoheader.biSize = sizeof(BITMAPINFOHEADER);
-  infoheader.biWidth=w;
-  infoheader.biHeight=h;
-  infoheader.biPlanes=1;
-  infoheader.biBitCount=24;
-  infoheader.biCompression=0;
-  infoheader.biSizeImage=h*BytePerLine;
-  infoheader.biXPelsperMeter=(WORD)(300*39.37007874);
-  infoheader.biYPelsPerMeter=(WORD)(300*39.37007874);
-  infoheader.biXPelsperMeter=0;
-  infoheader.biYPelsPerMeter=0;
-  infoheader.biClrUsed=0;
-  infoheader.biClrlmportant=0;
-  fwrite(&fileheader, sizeof(fileheader),1,fpout);
-  fwrite(&infoheader, sizeof(infoheader),1,fpout);
-
-  fwrite(pData, w*h*3, 1, fpout);
-  if (FillZeroNum)
-  {
-    fwrite(Zeros,sizeof(BYTE),4-FillZeroNum,fpout);
-  }
-  fclose(fpout);
-  return true;
+  fwrite(pData, len ,1, fp);
 }
 
 int main(void)
@@ -489,36 +438,47 @@ int main(void)
   int frameLen;
   BYTE* pData;
   BYTE* pYUV;
-  FILE* fp;
-  int readBytes = 0;
-  bool canLoop;
   
   w = Param.w;
   h = Param.h;
   format = Param.type;
   frameLen = GetYUVFrameLen(format, w, h);
   pYUV = new BYTE[frameLen];
-  pData = new BYTE[w*h*3];
-  char newFilename[256] = {0};
-  int index = 1;
+  pData = new BYTE[w*h*4];
 
-while (1){
-	  canLoop = RestoreDataFromYUV(pYUV, frameLen, Param.filename, readBytes);
-	   if (!canLoop)
-	   	goto EXIT;
-	  readBytes += frameLen;
-	  MakeRGBData(pYUV, w, h, pData, format);
-	  
-	  strcpy(newFilename, Param.filename);
-	  sprintf(newFilename, "%s_%d.bmp", Param.filename, index);
-	  SaveRGBData2File(pData, w, h, newFilename);
-	  index++;
+  bool loop = true;
+
+  int i = 0;
+  int maxLoop = 10;
+  char filename[256] = {0};
+  sprintf(filename, "%s", Param.filename);
+
+  char newFilename[256] = {0};
+  strcpy(newFilename, filename);
+  int nameLen = strlen(newFilename);
+  newFilename[nameLen-3] = 'y';
+  newFilename[nameLen-2] = 'u';
+  newFilename[nameLen-1] = 'v';
+  FILE* fp = fopen(newFilename, "wb");
+  if (fp == NULL)
+  {
+    printf("error open %s\n", newFilename);
+    return 0;
   }
- EXIT:
-  delete []pYUV;
-  delete []pData;
+while (1)
+{
+  i++;
+  loop = RestoreDataFromBMP(pData, w, h, filename);
+  if (!loop ||  i >= maxLoop) break;
+  printf("RestoreDataFromBMP finished\n");
+  MakeYUVData(pData, w, h, pYUV, format);
+  printf("MakeYUVData[%d] finished\n", i);
+  SaveYUV2File(pYUV, frameLen, fp);
   
   printf("%s created (w:%d h:%d)\n", newFilename, w, h);
+  //break;
+}
+  fclose(fp);
   return 0;
 }
 

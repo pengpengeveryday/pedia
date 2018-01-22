@@ -9,6 +9,7 @@ LOCAL_C_INCLUDES := \
 LOCAL_SRC_FILES:= \
     test.cpp \
     BmpExtractor.cpp \
+    Bitmap.cpp \
 
 LOCAL_STATIC_LIBRARIES := \
     datasource \
