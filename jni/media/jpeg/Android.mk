@@ -8,6 +8,7 @@ LOCAL_C_INCLUDES := \
 
 LOCAL_SRC_FILES:= \
     JpegEncoder.cpp \
+    HuffmanMaker.cpp \
 
 LOCAL_STATIC_LIBRARIES := \
     datasource \

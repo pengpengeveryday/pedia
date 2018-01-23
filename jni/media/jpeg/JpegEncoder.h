@@ -20,6 +20,20 @@ typedef struct tagRLEItem {
     }
 } RLEItem;
 
+typedef struct tagQItem {
+    int zeroCount;
+    unsigned short code;
+    int size;
+    unsigned short code2;
+
+    tagQItem(int zc, unsigned short c, int sz) {
+        zeroCount = zc;
+        code = c;
+        size = sz;
+        code2 = 0;
+    }
+} QItem;
+
 
 class JpegEncoder {
 public:

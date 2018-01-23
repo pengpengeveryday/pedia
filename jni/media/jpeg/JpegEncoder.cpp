@@ -9,6 +9,7 @@
 #include <cmath>
 #include <string>
 #include <list>
+#include "HuffmanMaker.h"
 
 #define TAG "JpegEncoder"
 #include "log.h"
@@ -137,7 +138,7 @@ void JpegEncoder::encode(const unsigned char pixel[8][8]) {
             sprintf(temp, "%lf ", idctResult[i][j]);
             line += temp;
         }
-        PRINTI("%s", line.c_str());
+        //PRINTI("%s", line.c_str());
     }
 
     int qresult[8][8];
@@ -150,7 +151,7 @@ void JpegEncoder::encode(const unsigned char pixel[8][8]) {
             sprintf(temp, "%d ", qresult[i][j]);
             line += temp;
         }
-        PRINTI("%s", line.c_str());
+        //PRINTI("%s", line.c_str());
     }
 
     int ztable[8][8];
@@ -164,17 +165,61 @@ void JpegEncoder::encode(const unsigned char pixel[8][8]) {
             sprintf(temp, "%d ", ztable[i][j]);
             line += temp;
         }
-        PRINTI("%s", line.c_str());
+        //PRINTI("%s", line.c_str());
+    }
+
+    {
+        RLEItem& ri = items.back();
+        if (ri.value == 0) {
+            ri.zeroCount = 0;
+        }
+    }
+
+    {
+        // test only
+        int data[][2] = { {0, 57}, {0, 45}, {4, 23}, {1, -30}, {0, -8}, {2, 1}, {0, 0} };
+        items.clear();
+        for (int i = 0; i < 7; i++) {
+            RLEItem ri(data[i][0], data[i][1]);
+            items.push_back(ri);
+        }
     }
 
     std::string zrle;
-    for (std::list<RLEItem>::iterator it = items.begin(); it != items.end(); it++) {
-        RLEItem ri = *it;
-        char buff[256] = {0};
-        sprintf(buff, "(%d, %d), ", ri.zeroCount, ri.value);
-        zrle += buff;
-    }
+        for (std::list<RLEItem>::iterator it = items.begin(); it != items.end(); it++) {
+            RLEItem ri = *it;
+            char buff[256] = {0};
+            sprintf(buff, "(%d, %d), ", ri.zeroCount, ri.value);
+            zrle += buff;
+        }
     PRINTI("%s", zrle.c_str());
+
+    std::list<QItem> eItems;
+    for (std::list<RLEItem>::iterator it = items.begin(); it != items.end(); it++) {
+        RLEItem& ri = *it;
+        HuffmanMaker maker;
+        unsigned short code;
+        int size = maker.make(ri.value, code);
+        QItem qi(ri.zeroCount, code, size);
+        eItems.push_back(qi);
+    }
+
+    std::string eresult;
+    for (std::list<QItem>::iterator it = eItems.begin(); it != eItems.end(); it++) {
+        QItem& ri = *it;
+        unsigned char value = 0;
+        value = ri.zeroCount;
+        value = value<<4;
+        value += ri.size & 0x0f;
+        HuffmanMaker maker;
+        maker.make(value, ri.code2);
+
+        char buff[256] = {0};
+        sprintf(buff, "(%d, %d) ", ri.code, ri.code2);
+        eresult += buff;
+    }
+    PRINTI("%s", eresult.c_str());
+
 }
 
 }
